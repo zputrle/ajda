@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html $if(lang)$ lang="$lang$" $endif$>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="Content-Style-Type" content="text/css" />
+    <link
+      rel="stylesheet"
+      href="./src/lnew.css"
+    />
+    <link rel="stylesheet" href="./src/theme.css">
+    <meta name="generator" content="pandoc" />
+    $for(author-meta)$
+    <meta name="author" content="$author-meta$" />
+    $endfor$ $if(date-meta)$
+    <meta name="date" content="$date-meta$" />
+    $endif$
+    <title>$if(title-prefix)$$title-prefix$ - $endif$$pagetitle$</title>
+
+    $if(highlighting-css)$
+    <style type="text/css">
+      $highlighting-css$
+    </style>
+    $endif$ $if(math)$ $math$ $endif$ $for(header-includes)$ $header-includes$
+    $endfor$
+  </head>
+  <body>
+    <main>
+      <div class="title-row">
+      <div class="logo">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 255 255">
+          <g transform="matrix(1,0,0,1,-32,16)">
+            <g transform="matrix(1,0,0,1,24,-27)">
+
+              <g>
+                <path d="M408,216 C416.6667,188 425.3333,160 456,160 C486.6667,160 539.3333,188 592,216"
+                      transform="matrix(1.016399929,-1.003125868,1.303438013,1.28641527,-635.737517481,344.700978082)"
+                      fill="#e2cba9" stroke="#000000" stroke-width="2"/>
+              </g>
+
+              <g>
+                <path d="M592,224 C539.3333,216 486.6667,208 456,208 C425.3333,208 416.6667,216 408,224"
+                      transform="matrix(1.016399929,-1.003125868,1.303438013,1.28641527,-646.165021588,334.409655923)"
+                      fill="#c99d5c" stroke="#000000" stroke-width="2"/>
+              </g>
+
+              <g>
+                <path d="M408,216 C416.6667,188 425.3333,160 456,160 C486.6667,160 539.3333,188 592,216"
+                      transform="matrix(1.016399929,-1.003125868,-1.303438013,-1.28641527,-72.652295719,900.432374622)"
+                      fill="#c99d5c" stroke="#000000" stroke-width="2"/>
+              </g>
+
+              <g>
+                <circle cx="60.58" cy="212.81" r="2"
+                        fill="#000000" stroke="#000000" stroke-width="2"/>
+              </g>
+
+            </g>
+          </g>
+        </svg>
+      </div>
+      <h1>$title$</h1>
+      </div>
+
+      $if(description)$
+      <p>$description$</p>
+      $endif$ $if(toc)$
+      <!--
+      <nav>
+        <details>
+          <summary>目次</summary>
+          $toc$
+        </details>
+      </nav>
+      -->
+      $endif$
+      <article>$body$</article>
+    </main>
+  </body>
+</html>
