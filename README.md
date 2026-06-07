@@ -1,4 +1,4 @@
-# Ajda
+# [Ajda](https://ajda.fly.dev/ajda.html)
 
 **Ajda** is a reasonably secure minimal HTTPS server that:
 
@@ -12,7 +12,10 @@
 
 Perfect for self-hosting a blog.
 
-See the [code](???).
+See the [code](https://github.com/zputrle/ajda/blob/main/src/ajda.go).
+
+
+[Home](https://ajda.fly.dev/ajda.html) / [GitHub](https://github.com/zputrle/ajda/)
 
 ## How to run
 
