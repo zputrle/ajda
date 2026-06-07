@@ -1,3 +1,5 @@
+# Ajda
+
 **Ajda** is a reasonably secure minimal HTTPS server that:
 
 - is as **simple** as possible,
@@ -12,7 +14,7 @@ Perfect for self-hosting a blog.
 
 See the [code](???).
 
-### How to run
+## How to run
 
 Run
 ```bash
@@ -38,7 +40,7 @@ Get additional information about the supported config flags:
 go run src/ajda.go --help
 ```
 
-### Security
+## Security
 
 The idea behind Ajda is simple: we want to self-host a blog on a Raspberry Pi while being reasonably confident that **(I)** Ajda serves only a predefined set of files selected at startup, and **(II)** does not represent a convenient entry point for an attacker. We assume that the attacker is attempting to compromise Ajda through the exposed HTTPS port where Ajda is listening.
 
