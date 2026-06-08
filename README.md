@@ -1,16 +1,16 @@
 #  <img src="./spages/post/src/logo.svg" width="30">  [Ajda](https://ajda.fly.dev/ajda.html)
 
-**Ajda** is a reasonably secure minimal HTTPS server that:
+**Ajda** is a reasonably secure minimal HTTPS server that is:
 
-- is as **simple** as possible,
-- written in **Go**,
+- as **simple** as possible,
+- **secure by default**,
 - **easily understood and reviewed**.
 - contained in a **single file**,
-- is **secure by default**,
+- written in **Go**,
 - **serves only a fixed set of files**, and
 - runs on Linux (e.g. Debian).
 
-Perfect for self-hosting a blog.
+Perfect for self-hosting a blog. Just generate a static webpage and serve it with Ajda.
 
 See the [code](https://github.com/zputrle/ajda/blob/main/src/ajda.go).
 
