@@ -1,4 +1,4 @@
-# [Ajda](https://ajda.fly.dev/ajda.html)
+#  <img src="./spages/post/src/logo.svg" width="30">  [Ajda](https://ajda.fly.dev/ajda.html)
 
 **Ajda** is a reasonably secure minimal HTTPS server that:
 
