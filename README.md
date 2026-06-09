@@ -2,7 +2,7 @@
 
 **Ajda** is a reasonably secure minimal HTTPS server that is:
 
-- as **simple** as possible,
+- **simple**,
 - **secure by default**,
 - **easily understood and reviewed**.
 - contained in a **single file**,
@@ -55,7 +55,6 @@ Furthermore, Ajda uses [Landlock](https://landlock.io/) to restrict itself so th
 
 In addition, Ajda also uses Go's [os.Root](https://go.dev/blog/osroot) to avoid path traversal, as paths are controlled by the clients. This is partially redundant because Ajda is already restricted to the root directory by Landlock and the allowlist check, but os.Root is easy to add.
 
-**(II) Prevent underlying system from being compromised:**  
-Alongside using Landlock, Ajda restricts the set of system calls it can make using [seccomp](https://lwn.net/Articles/656307/), effectively blocking the majority of system calls. Additionally, Ajda uses [cgroups](https://docs.kernel.org/admin-guide/cgroup-v1/cgroups.html) to limit the amount of CPU and memory resources it can consume. So even if an attacker performs a DoS attack, it will only impact Ajda and not the rest of the system.
+**(II) Prevent underlying system from being compromised:** Alongside using Landlock, Ajda restricts the set of system calls it can make using [seccomp](https://lwn.net/Articles/656307/), effectively blocking the majority of system calls. Additionally, Ajda uses [cgroups](https://docs.kernel.org/admin-guide/cgroup-v1/cgroups.html) to limit the amount of CPU and memory resources it can consume. So even if an attacker performs a DoS attack, it will only impact Ajda and not the rest of the system.
 
 **Note**: A preferred way to run Ajda is still inside a container, or even better, on top of [Firecracker](https://firecracker-microvm.github.io/), which provides stronger, hardware-enforced isolation from the rest of the system. Running a web-facing application directly on Linux exposes a large attack surface that can be avoided entirely by using solutions such as Firecracker's microVMs. However, running Ajda on a Raspberry Pi with the default OS is easier. Note that, you should perform your own threat modeling to determine whether this simplification is worth it.
