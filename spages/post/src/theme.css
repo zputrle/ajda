@@ -36,3 +36,7 @@
 	--nc-ac-tx: #FFFFFF;*/
 }
 
+/* Fix: code block background on mobile horizontal scroll */
+pre.sourceCode {
+    min-width: max-content;
+}

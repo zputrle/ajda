@@ -1,10 +1,6 @@
 .PHONY: view
 
 FILE_NAME:=ajda
-#CSS_FILE:=github-style.css
-CSS_FILE:=nonograph.css
-
-		#--css=$(CSS_FILE) \
 
 build:
 	pandoc \
