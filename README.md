@@ -2,11 +2,10 @@
 
 **Ajda** is a reasonably secure minimal HTTPS server that is:
 
-- **simple**,
-- **secure by default**,
+- **simple** and **easy to review**,
 - written in **Go** as a **single file**,
-- **easily reviewed**,
-- **serves only a fixed set of files**, and
+- **secure by default**,
+- designed to serve **a predefined set of files**, and
 - runs on Linux (e.g. Debian).
 
 Perfect for self-hosting a blog. Just generate a static webpage and serve it with Ajda.

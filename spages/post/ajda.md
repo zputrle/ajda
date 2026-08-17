@@ -5,11 +5,10 @@ author: zputrle
 
 **Ajda** is a reasonably secure minimal HTTPS server that is:
 
-- **simple**,
-- **secure by default**,
+- **simple** and **easy to review**,
 - written in **Go** as a **single file**,
-- **easily reviewed**,
-- **serves only a fixed set of files**, and
+- **secure by default**,
+- designed to serve **a predefined set of files**, and
 - runs on Linux (e.g. Debian).
 
 Perfect for self-hosting a blog. Just generate a static webpage and serve it with Ajda.
@@ -37,16 +36,16 @@ Expected output:
 2026/06/07 16:28:24 INFO Listening ... on_address=:8080
 ```
 
-Get additional information about the flags:
+Use `--help` for additionalu:
 ```bash
 go run src/ajda.go --help
 ```
 
 ## Security
 
-The idea behind Ajda is simple: we want to self-host a blog on a Raspberry Pi while being reasonably sure that Ajda **(I)** serves only a predefined set of files selected at startup, and **(II)** does not provide a convenient entry point for an attacker. We assume that the attacker is attempting to compromise Ajda through the exposed HTTPS port where Ajda is listening.
+The goal behind Ajda is to have a simple way to self-host a blog on a Raspberry Pi while being reasonably sure that Ajda **(I)** serves only a predefined set of files selected at startup, and **(II)** does not provide a convenient entry point for an attacker. We assume that the attacker is attempting to compromise Ajda through the exposed HTTPS port where Ajda is listening.
 
-Ajda follows a simple idea: **programs should limit what they can do at startup to minimize the attack surface if they are compromised**. For example, programs should always limit which system calls they can make and which files they can access. As a result, even if a program is compromised, an attacker cannot make arbitrary system calls or interact with arbitrary files.
+Ajda is build around the idea that **programs should limit what they are allowed to do at startup in order to minimize the attack surface if they are compromised**. For example, programs should always limit which system calls they can make and which files they can access. As a result, even if a program is compromised, an attacker cannot make arbitrary system calls or interact with arbitrary files.
 
 **(I) Serve only selected files**: Ajda serves only files that are present in the _root directory_ at startup. When Ajda starts, it creates an allowlist of all files in the root directory. If the file is on the list, it can be served; otherwise the request is rejected. Ajda displays the allowlist at startup.
 
