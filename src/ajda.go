@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/hex"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -12,14 +14,43 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
+	"time"
 
-	"github.com/landlock-lsm/go-landlock/landlock"
 	libseccomp "github.com/seccomp/libseccomp-golang"
 )
+
+// File wrapper used to synchronize access to a file descriptor
+type FileWrap struct {
+	lock sync.Mutex
+	fd   *os.File
+}
+
+func Wrap(f *os.File) *FileWrap {
+	return &FileWrap{fd: f, lock: sync.Mutex{}}
+}
+
+func (fw *FileWrap) CopyTo(dst io.Writer) (int64, error) {
+	fw.lock.Lock()
+	defer fw.lock.Unlock()
+
+	_, err := fw.fd.Seek(0, io.SeekStart)
+	if err != nil {
+		return 0, fmt.Errorf("Failed to move file descriptor's offset to start of the file: %w", err)
+	}
+
+	cnt, err := io.Copy(dst, fw.fd)
+	if err != nil {
+		return cnt, fmt.Errorf("Error occurred while coping the file: %w", err)
+	}
+
+	return cnt, err
+}
 
 // Default response when file cannot be served.
 func CannotBeServed(w http.ResponseWriter) {
@@ -55,12 +86,12 @@ func limit_memory_and_cpu(n_cores int, memory_size int) error {
 
 	slog.Info("Limiting the number of cores and memory.", "#cores", n_cores, "memory(MB)", memory_size)
 
-	// TODO: The user ID should be retrieved from environment.
-	cgroupRoot := "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/"
+	uid := os.Getuid()
+	cgroupRoot := fmt.Sprintf("/sys/fs/cgroup/user.slice/user-%d.slice/user@%d.service/app.slice/", uid, uid)
 	cgroupName := "ajda.service"
 	cgroupPath := filepath.Join(cgroupRoot, cgroupName)
 
-	// Create cgroup.
+	// Create cgroup.cgroupRoot
 	if err := os.MkdirAll(cgroupPath, 0755); err != nil {
 		return fmt.Errorf("Failed to create cgroup: %w", err)
 	}
@@ -93,7 +124,7 @@ func limit_memory_and_cpu(n_cores int, memory_size int) error {
 		[]byte(fmt.Sprintf("%d", pid)),
 		0644,
 	); err != nil {
-		return fmt.Errorf("Failed to add proces to the group: %w", err)
+		return fmt.Errorf("Failed to add process to the group: %w", err)
 	}
 
 	return nil
@@ -107,17 +138,14 @@ func randomHex(n int) (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
-// TODO: Test that panic from a Gorutine crashes the entite program.
-
 // Serve only allowed paths.
-func ServeOnly(rootDir *os.Root, availableFiles map[string]bool, home string) func(http.ResponseWriter, *http.Request) {
+func ServeOnly(availableFiles map[string]*FileWrap, home string) func(http.ResponseWriter, *http.Request) {
 
 	return func(w http.ResponseWriter, req *http.Request) {
 
 		id, err := randomHex(3)
 		if err != nil {
-			slog.Error(err.Error())
-			os.Exit(1)
+			panic(fmt.Sprintf("Failed to generate a valid ID for a request: %v", err))
 		}
 
 		// Setup request specific logger.
@@ -127,21 +155,21 @@ func ServeOnly(rootDir *os.Root, availableFiles map[string]bool, home string) fu
 
 		log.Info("Received request.", "path", path, "from", req.RemoteAddr)
 
-		// Redirecto to home page if "/" path provided.
+		// Redirect to home page if "/" path provided.
 		if path == "/" {
 			slog.Info("Redirecting.", "to", home)
 			http.Redirect(w, req, home, http.StatusFound)
 			return
 		}
 
-		// Check if the requested path is allowed.
-		if _, ok := availableFiles[path]; !ok {
+		// Check if the requested file is available.
+		fw, ok := availableFiles[path]
+		if !ok {
 			log.Warn("File not available.", "path", path)
 			CannotBeServed(w)
 			return
 		}
 
-		// TODO: Check that the path is of the right form. Deos Go's library already handles that?
 		pathSpl := strings.Split(path, ".")
 		if len(pathSpl) != 2 {
 			log.Warn("Invalid path format. Expecting only one dot.", "path", path)
@@ -174,14 +202,7 @@ func ServeOnly(rootDir *os.Root, availableFiles map[string]bool, home string) fu
 			return
 		}
 
-		f, err := rootDir.Open(path[1:])
-		if err != nil {
-			log.Error("File could not be opened.", "error", err)
-			CannotBeServed(w)
-			return
-		}
-		defer f.Close()
-		_, err = io.Copy(w, f)
+		_, err = fw.CopyTo(w)
 		if err != nil {
 			log.Error("Failed to send a file.", "error", err)
 			CannotBeServed(w)
@@ -239,7 +260,6 @@ type Config struct {
 	ServerCertPath string
 	ServerKeyPath  string
 	NoCgroups      bool
-	NoLandlock     bool
 }
 
 // Parse input arguments and construct configuration from them.
@@ -253,7 +273,6 @@ func parseInputArguments() Config {
 	serverKeyPath := flag.String("server_key", "./cert/server.key", "Path to servers private key")
 	// Only use in a container.
 	noCgroups := flag.Bool("no_cgroups", false, "Do not use cgroups. Should only be used in a container with already limited use of resources.")
-	noLandlock := flag.Bool("no_landlock", false, "Do not use landlock. Should only be used in a container with already limited file system access.")
 
 	flag.Parse()
 
@@ -265,7 +284,6 @@ func parseInputArguments() Config {
 		ServerCertPath: *serverCertPath,
 		ServerKeyPath:  *serverKeyPath,
 		NoCgroups:      *noCgroups,
-		NoLandlock:     *noLandlock,
 	}
 }
 
@@ -275,9 +293,11 @@ func main() {
 
 	conf := parseInputArguments()
 
-	slog.Info("Starting ...")
+	slog.Info("Starting ...", "serving_files_from", conf.RootDirPath)
 
-	var allowedPaths = make(map[string]bool)
+	var allowedPaths = make(map[string]*FileWrap)
+
+	// The file descriptors opened below are read-only and are reclaimed by OS when the program exits.
 
 	// Get all the pages / resources that can be served.
 	err := filepath.WalkDir(conf.RootDirPath, func(path string, d fs.DirEntry, err error) error {
@@ -287,8 +307,13 @@ func main() {
 
 		if !d.IsDir() {
 
+			f, err := os.Open(path)
+			if err != nil {
+				return fmt.Errorf("Failed to open a file: %w", err)
+			}
+
 			ipath := "/" + strings.Join(strings.Split(path, "/")[1:], "/")
-			allowedPaths[ipath] = true
+			allowedPaths[ipath] = Wrap(f)
 
 		}
 
@@ -296,6 +321,7 @@ func main() {
 	})
 	if err != nil {
 		slog.Error("Walking rootDirPath.", "error", err)
+		os.Exit(1)
 	}
 
 	for fpath := range allowedPaths {
@@ -314,17 +340,6 @@ func main() {
 
 	// Start serving.
 
-	absRootDirPath, err := filepath.Abs(conf.RootDirPath)
-	if err != nil {
-		slog.Error("Failed to convert to absolute path.", "err", err)
-	}
-
-	rootDir, err := os.OpenRoot(conf.RootDirPath)
-	if err != nil {
-		slog.Error("Failed to open the root directory using os.OpenRoot.", "error", err.Error())
-		os.Exit(1)
-	}
-
 	mux := http.NewServeMux()
 
 	server := &http.Server{
@@ -332,12 +347,13 @@ func main() {
 		Handler: mux,
 	}
 
-	mux.HandleFunc("GET /", ServeOnly(rootDir, allowedPaths, conf.Home))
+	// TODO: Server should handle the path instead of doing it by hand in ServerOnly.
+	mux.HandleFunc("GET /", ServeOnly(allowedPaths, conf.Home))
 
 	// Limit to HTTP/2.
 	server.Protocols = new(http.Protocols)
 	if conf.HttpOnly {
-		server.Protocols.SetHTTP1(true) // TODO: Should work only with HTTP/2.
+		server.Protocols.SetHTTP1(true)
 		server.Protocols.SetHTTP2(false)
 		server.Protocols.SetUnencryptedHTTP2(true)
 	} else {
@@ -355,37 +371,38 @@ func main() {
 		listener = constructTLSListener(conf)
 	}
 
-	if conf.NoLandlock {
-		slog.Warn("no_landlock enabled. Access to files is not restricted to the root directory.")
-	} else {
-		// Only allow reading from the root dir.
-		slog.Info("Restricting file access.", "to_path", absRootDirPath)
-		err = landlock.V8.RestrictPaths(
-			landlock.RODirs(absRootDirPath),
-		)
-		if err != nil {
-			slog.Error("Failed to restrict file access to root directory.", "error", err)
-			os.Exit(1)
-		}
-	}
-
 	// Restrict systemcalls that we do not need.
 	allowedSysCalls := []string{
-		"write", "epoll_ctl", "close", "exit_group", "accept4",
-		"nanosleep", "epoll_pwait", "futex", "sched_yield", "read",
-		"mmap", "getsockname", "setsockopt", "prctl", "getrandom",
-		"lseek", "openat", "rt_sigprocmask", "getpid", "tgkill",
-		"gettid", "fsync", "rt_sigreturn", "rt_sigaction"}
+		"write", "epoll_ctl", "accept4", "epoll_pwait", "futex", "read",
+		"getsockname", "getrandom", "lseek", "rt_sigprocmask", "tgkill",
+		"rt_sigreturn", "rt_sigaction", "close",
+		"clone3", "mmap", "mprotect", "set_robust_list", "rseq", "nanosleep",
+		"munmap", "sigaltstack", "exit_group"}
 	if err = whiteList(allowedSysCalls); err != nil {
 		slog.Error("Failed seting seccomp.", "error", err)
 		os.Exit(1)
 	}
 
+	// Shut down gracefully on SIGINT/SIGTERM, giving in-flight requests time
+	// to finish instead of dropping them.
+	go func() {
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		<-sigCh
+
+		slog.Info("Shutting down ...")
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(ctx); err != nil {
+			slog.Error("Failed to shut down gracefully.", "error", err)
+		}
+	}()
+
 	slog.Info("Listening ...", "on_address", server.Addr)
 
-	// Server lop.
+	// Server loop.
 	err = server.Serve(listener)
-	if err != nil {
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		slog.Error("Failed to start the server.", "err", err)
 		os.Exit(1)
 	}

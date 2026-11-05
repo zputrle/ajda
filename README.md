@@ -1,16 +1,16 @@
-#  <img src="./spages/post/src/logo.svg" width="30">  [Ajda](https://ajda.fly.dev/ajda.html)
+#  <img src="./imgs/logo.svg" width="30">  [Ajda](https://github.com/zputrle/ajda)
 
-**Ajda** is a reasonably secure minimal HTTPS server that is:
+**Ajda** is a reasonably secure minimal HTTPS server that:
 
-- **simple** and **easy to review**,
-- written in **Go** as a **single file**,
-- **secure by default**,
-- designed to serve **a predefined set of files**, and
-- runs on Linux (e.g. Debian).
+- is **simple** and **easy to review**,
+- is written in **Go** as a **single file**,
+- is **secure by default**,
+- serves only **a predefined set of files** and
+- runs on **Linux**, for example, Debian.
 
 Perfect for self-hosting a blog. Just generate a static webpage and serve it with Ajda.
 
-See [Code](https://github.com/zputrle/ajda/blob/main/src/ajda.go) / [Home](https://ajda.fly.dev/ajda.html) / [GitHub](https://github.com/zputrle/ajda/).
+See [Code](https://github.com/zputrle/ajda/blob/main/src/ajda.go) / [GitHub](https://github.com/zputrle/ajda).
 
 ## How to run
 
@@ -22,34 +22,41 @@ go run src/ajda.go --rootDirPath ./pages --address :8080 --home ajda.html \
 
 Expected output:
 ```
-2026/06/07 16:28:24 INFO Starting ...
-2026/06/07 16:28:24 INFO Serving file. path=/ajda.html
-2026/06/07 16:28:24 INFO Serving file. path=/robots.txt
-2026/06/07 16:28:24 INFO Serving file. path=/src/lnew.css
-2026/06/07 16:28:24 INFO Serving file. path=/src/theme.css
-2026/06/07 16:28:24 INFO Limiting the number of cores and memory. #cores=1 memory(MB)=512
-2026/06/07 16:28:24 INFO Restricting file access. to_path=<path_to_root_dir>
-2026/06/07 16:28:24 INFO Whitelisting system calls. system_calls="write, epoll_ctl, close, exit_group, accept4, nanosleep, epoll_pwait, futex, sched_yield, read, mmap, getsockname, setsockopt, prctl, getrandom, lseek, openat, rt_sigprocmask, getpid, tgkill, gettid, fsync, rt_sigreturn, rt_sigaction"
-2026/06/07 16:28:24 INFO Listening ... on_address=:8080
+2026/11/05 11:33:06 INFO Starting ... serving_files_from=./pages
+2026/11/05 11:33:06 INFO Serving file. path=/ajda.html
+2026/11/05 11:33:06 INFO Serving file. path=/robots.txt
+2026/11/05 11:33:06 INFO Serving file. path=/src/lnew.css
+2026/11/05 11:33:06 INFO Serving file. path=/src/theme.css
+2026/11/05 11:33:06 INFO Limiting the number of cores and memory. #cores=1 memory(MB)=512
+2026/11/05 11:33:06 INFO Whitelisting system calls. system_calls="write, epoll_ctl, accept4, epoll_pwait, futex, read, getsockname, getrandom, lseek, rt_sigprocmask, tgkill, rt_sigreturn, rt_sigaction, close, clone3, mmap, mprotect, set_robust_list, rseq, nanosleep, munmap, sigaltstack, exit_group"
+2026/11/05 11:33:06 INFO Listening ... on_address=:8080
 ```
 
-Get additional information about the flags:
+Use `--help` for all the options:
 ```bash
 go run src/ajda.go --help
 ```
 
 ## Security
 
-The idea behind Ajda is simple: we want to self-host a blog on a Raspberry Pi while being reasonably sure that Ajda **(I)** serves only a predefined set of files selected at startup, and **(II)** does not provide a convenient entry point for an attacker. We assume that the attacker is attempting to compromise Ajda through the exposed HTTPS port where Ajda is listening.
+The goal behind Ajda is to provide a simple way to self-host a blog on a Raspberry Pi in a secure way. To that end, Ajda is built to **(I)** be as simple as possible, **(II)** serve only a predefined set of files, and **(III)** prevent compromise of the underlying system.
 
-Ajda follows a simple idea: **programs should limit what they can do at startup to minimize the attack surface if they are compromised**. For example, programs should always limit which system calls they can make and which files they can access. As a result, even if a program is compromised, an attacker cannot make arbitrary system calls or interact with arbitrary files.
+Ajda is built around the idea that **programs should limit what they can do at startup in order to minimize the attack surface if they are compromised**. For example, programs should always limit which system calls they can make and which files they can access. As a result, even if a program is compromised, an attacker cannot make arbitrary system calls or interact with arbitrary files.
 
-**(I) Serve only selected files**: Ajda serves only files that are present in the _root directory_ at startup. When Ajda starts, it creates an allowlist of all files in the root directory. If the file is on the list, it can be served; otherwise the request is rejected. Ajda displays the allowlist at startup.
+**(I) Simplicity:** Ajda is simple by design, uses Go's well-maintained standard library (Footnote 1), and is contained in a single file. This makes Ajda easy to understand and audit.
 
-Furthermore, Ajda uses [Landlock](https://landlock.io/) to restrict itself so that it can only read files from the root directory. Therefore, even if Ajda were compromised and coerced into bypassing the allowlist check, it would still only be able to read files from the root directory. This prevents Ajda from interacting with arbitrary files elsewhere on the system, significantly reducing the attack surface.
+**(II) Serve only selected files**: Ajda serves only files that are present in the _root directory_ at startup. When Ajda starts, it goes through the _root directory_ and opens all the files in read mode, obtaining a file descriptor for each. It then drops the privilege to open any further files through [seccomp](https://lwn.net/Articles/656307/). The descriptors are then used to serve files when Ajda receives a request (Footnote 2), never needing to open a file again. The files that are served are logged at startup after they are opened.
+```
+2026/06/07 16:28:24 INFO Serving file. path=/ajda.html
+2026/06/07 16:28:24 INFO Serving file. path=/robots.txt
+2026/06/07 16:28:24 INFO Serving file. path=/src/lnew.css
+2026/06/07 16:28:24 INFO Serving file. path=/src/theme.css
+```
 
-In addition, Ajda also uses Go's [os.Root](https://go.dev/blog/osroot) to avoid path traversal, as paths are controlled by the clients. This is partially redundant because Ajda is already restricted to the root directory by Landlock and the allowlist check, but os.Root is easy to add.
+**(III) Prevent compromise of the underlying system:** Ajda limits the set of system calls it can make after startup using [seccomp](https://lwn.net/Articles/656307/), which removes the majority of the attack surface. Additionally, Ajda uses [cgroups](https://docs.kernel.org/admin-guide/cgroup-v1/cgroups.html) to limit the amount of CPU and memory resources it can consume, preventing DoS attacks against the server.
 
-**(II) Prevent compromise of the underlying system:** Alongside using Landlock, Ajda restricts the set of system calls it can make using [seccomp](https://lwn.net/Articles/656307/), effectively blocking the majority of system calls. Additionally, Ajda uses [cgroups](https://docs.kernel.org/admin-guide/cgroup-v1/cgroups.html) to limit the amount of CPU and memory resources it can consume. So even if an attacker performs a DoS attack, it will only impact Ajda and not the rest of the system.
+Note that it's still a good idea to run Ajda inside an isolated environment, such as a Docker container. Even better, run it on top of [Firecracker](https://firecracker-microvm.github.io/), which provides stronger, hardware-enforced isolation from the rest of the system. Running a web-facing application directly on Linux exposes a large attack surface that can be avoided entirely by using solutions such as Firecracker's microVMs. However, running Ajda on a Raspberry Pi with the default OS is easier. You should perform your own threat modeling to determine whether this simplification is worth it.
 
-Note that it still a good idea to run Ajda inside an isolated environment, as for example, a Docker container, or even better, on top of [Firecracker](https://firecracker-microvm.github.io/), which provides stronger, hardware-enforced isolation from the rest of the system. Running a web-facing application directly on Linux exposes a large attack surface that can be avoided entirely by using solutions such as Firecracker's microVMs. However, running Ajda on a Raspberry Pi with the default OS is easier. You should perform your own threat modeling to determine whether this simplification is worth it.
+**Footnote 1**: With the exception of libseccomp-golang, which is not part of the standard library.
+
+**Footnote 2**: The idea of using file descriptors as a mechanism of controlling access to files comes from the [Capsicum](https://www.usenix.org/legacy/event/sec10/tech/full_papers/Watson.pdf) sandboxing framework available for [FreeBSD](https://man.freebsd.org/cgi/man.cgi?capsicum%284%29). Capsicum uses file descriptors as capabilities to control access to several resources.
