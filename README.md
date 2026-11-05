@@ -45,7 +45,7 @@ Ajda is built around the idea that **programs should limit what they can do at s
 
 **(I) Simplicity:** Ajda is simple by design, uses Go's well-maintained standard library (Footnote 1), and is contained in a single file. This makes Ajda easy to understand and audit.
 
-**(II) Serve only selected files**: Ajda serves only files that are present in the _root directory_ at startup. When Ajda starts, it goes through the _root directory_ and opens all the files in read mode, obtaining a file descriptor for each. It then drops the privilege to open any further files through [seccomp](https://lwn.net/Articles/656307/). The descriptors are then used to serve files when Ajda receives a request (Footnote 2), never needing to open a file again. The files that are served are logged at startup after they are opened.
+**(II) Serve only selected files**: Ajda serves only files that are present in the _root directory_ at startup. When Ajda starts, it goes through the root directory and opens all the files in read mode, obtaining a file descriptor for each. It then drops the privilege to open any further files through [seccomp](https://lwn.net/Articles/656307/). The descriptors are then used to serve files when Ajda receives a request (Footnote 2), never needing to open a file again. The files that are served are logged at startup after they are opened.
 ```
 2026/06/07 16:28:24 INFO Serving file. path=/ajda.html
 2026/06/07 16:28:24 INFO Serving file. path=/robots.txt
