@@ -57,6 +57,6 @@ Ajda is built around the idea that **programs should limit what they can do at s
 
 Note that it's still a good idea to run Ajda inside an isolated environment, such as a Docker container. Even better, run it on top of [Firecracker](https://firecracker-microvm.github.io/), which provides stronger, hardware-enforced isolation from the rest of the system. Running a web-facing application directly on Linux exposes a large attack surface that can be avoided entirely by using solutions such as Firecracker's microVMs. However, running Ajda on a Raspberry Pi with the default OS is easier. You should perform your own threat modeling to determine whether this simplification is worth it.
 
-**Footnote 1**: With the exception of libseccomp-golang, which is not part of the standard library.
+**Footnote 1**: With the exception of [libseccomp-golang](https://github.com/seccomp/libseccomp-golang), which is not part of the standard library.
 
 **Footnote 2**: The idea of using file descriptors as a mechanism of controlling access to files comes from the [Capsicum](https://www.usenix.org/legacy/event/sec10/tech/full_papers/Watson.pdf) sandboxing framework available for [FreeBSD](https://man.freebsd.org/cgi/man.cgi?capsicum%284%29). Capsicum uses file descriptors as capabilities to control access to several resources.
