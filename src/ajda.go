@@ -383,8 +383,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Shut down gracefully on SIGINT/SIGTERM, giving in-flight requests time
-	// to finish instead of dropping them.
+	// Gracefully shutdown
 	go func() {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
